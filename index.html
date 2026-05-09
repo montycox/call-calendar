@@ -2092,8 +2092,8 @@
             <div id="cautionBody" style="display:none">
               <button class="data-btn" id="exportBtn">&#8595; Export data as JSON</button>
               <button class="data-btn admin-only" id="importBtn">&#8593; Import data from JSON</button>
-              <button class="data-btn danger admin-only" id="clearMonthBtn">&#x2715; Clear this month's data</button>
-              <button class="data-btn danger admin-only" id="clearAllBtn">&#x2715; Clear all data</button>
+              <button class="data-btn danger admin-only" id="clearMonthBtn">&#x2715; Clear this month's assignments</button>
+              <button class="data-btn danger admin-only" id="clearAllBtn">&#x2715; Clear all assignments</button>
             </div>
           </div>
 
@@ -5340,8 +5340,15 @@
       e.target.value = '';
     });
 
+    function offerBackupBeforeClearing() {
+      if (confirm('Download a backup before clearing? (Recommended)')) {
+        document.getElementById('exportBtn').click();
+      }
+    }
+
     document.getElementById('clearMonthBtn').addEventListener('click', () => {
-      if (!confirm(`Clear all data for ${MONTHS[viewMonth]} ${viewYear}?`)) return;
+      offerBackupBeforeClearing();
+      if (!confirm(`Clear all assignments for ${MONTHS[viewMonth]} ${viewYear}? This cannot be undone.`)) return;
       const days = new Date(viewYear, viewMonth + 1, 0).getDate();
       for (let d = 1; d <= days; d++)
         for (const p of staff) clearCell(viewYear, viewMonth, d, p);
@@ -5350,7 +5357,8 @@
     });
 
     document.getElementById('clearAllBtn').addEventListener('click', () => {
-      if (!confirm('Clear ALL calendar data? This cannot be undone.')) return;
+      offerBackupBeforeClearing();
+      if (!confirm('Clear ALL assignments? This cannot be undone.')) return;
       data = {};
       closeSettings();
       render();
