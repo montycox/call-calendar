@@ -688,6 +688,8 @@
       font-family: var(--font);
     }
     .btn-email-action:hover { background: #1976D2; }
+    .btn-email-action:disabled { background: #90A4AE; cursor: not-allowed; opacity: 0.7; }
+    .login-input:disabled { background: #F5F5F5; color: #90A4AE; cursor: not-allowed; }
     .login-links { display: flex; justify-content: space-between; width: 100%; }
     .login-link {
       background: none; border: none; padding: 0;
@@ -2267,9 +2269,13 @@
       if (!email || !pass) { msg.textContent = 'Enter email and password.'; return; }
       if (pass.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
       btn.disabled = true;
+      document.getElementById('su-email').disabled = true;
+      document.getElementById('su-pass').disabled = true;
       const { data, error } = await sb.auth.signUp({ email, password: pass });
       if (error) {
         btn.disabled = false;
+        document.getElementById('su-email').disabled = false;
+        document.getElementById('su-pass').disabled = false;
         msg.textContent = error.message;
         return;
       }
@@ -4533,9 +4539,13 @@
       if (!email || !pass) { msg.textContent = 'Enter email and password.'; return; }
       if (pass.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
       btn.disabled = true;
+      document.getElementById('si2-email').disabled = true;
+      document.getElementById('si2-pass').disabled = true;
       const { data, error } = await sb.auth.signUp({ email, password: pass });
       if (error) {
         btn.disabled = false;
+        document.getElementById('si2-email').disabled = false;
+        document.getElementById('si2-pass').disabled = false;
         msg.textContent = error.message;
         return;
       }
