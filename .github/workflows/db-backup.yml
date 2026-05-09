@@ -10,29 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DB_HOST: db.pkjlnjsswoadftkseffo.supabase.co
-      DB_URL: postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require
+      DB_URL: postgresql://postgres.pkjlnjsswoadftkseffo@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
 
     steps:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y --no-install-recommends postgresql-client
 
-      - name: Resolve IPv4 address
-        run: |
-          DB_IPV4=$(python3 -c "import socket; print(socket.getaddrinfo('$DB_HOST', None, socket.AF_INET)[0][4][0])")
-          echo "Resolved $DB_HOST → $DB_IPV4"
-          echo "DB_IPV4=$DB_IPV4" >> $GITHUB_ENV
-
       - name: Dump schema
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOSTADDR: ${{ env.DB_IPV4 }}
         run: pg_dump "$DB_URL" --schema-only -f schema.sql
 
       - name: Dump data
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGHOSTADDR: ${{ env.DB_IPV4 }}
         run: pg_dump "$DB_URL" --data-only -f data.sql
 
       - name: Upload backup
