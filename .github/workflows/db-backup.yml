@@ -18,7 +18,10 @@ jobs:
         run: sudo apt-get install -y --no-install-recommends postgresql-client
 
       - name: Resolve IPv4 address
-        run: echo "DB_IPV4=$(getent ahostsv4 $DB_HOST | awk 'NR==1{print $1}')" >> $GITHUB_ENV
+        run: |
+          DB_IPV4=$(python3 -c "import socket; print(socket.getaddrinfo('$DB_HOST', None, socket.AF_INET)[0][4][0])")
+          echo "Resolved $DB_HOST → $DB_IPV4"
+          echo "DB_IPV4=$DB_IPV4" >> $GITHUB_ENV
 
       - name: Dump schema
         env:
