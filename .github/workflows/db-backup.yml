@@ -29,7 +29,12 @@ jobs:
       - name: Dump data
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --data-only -f data.sql
+        run: |
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --data-only \
+            --exclude-table=profiles \
+            --exclude-table=pending_users \
+            --exclude-table=audit_log \
+            -f data.sql
 
       - name: Upload backup
         uses: actions/upload-artifact@v4.6.2
