@@ -9,23 +9,28 @@ jobs:
   backup:
     runs-on: ubuntu-latest
 
+    env:
+      DB_HOST: db.pkjlnjsswoadftkseffo.supabase.co
+      DB_URL: postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require
+
     steps:
       - name: Install PostgreSQL client
         run: sudo apt-get install -y --no-install-recommends postgresql-client
 
+      - name: Resolve IPv4 address
+        run: echo "DB_IPV4=$(getent ahostsv4 $DB_HOST | awk 'NR==1{print $1}')" >> $GITHUB_ENV
+
       - name: Dump schema
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          pg_dump "postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require" \
-            --schema-only -f schema.sql
+          PGHOSTADDR: ${{ env.DB_IPV4 }}
+        run: pg_dump "$DB_URL" --schema-only -f schema.sql
 
       - name: Dump data
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          pg_dump "postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require" \
-            --data-only -f data.sql
+          PGHOSTADDR: ${{ env.DB_IPV4 }}
+        run: pg_dump "$DB_URL" --data-only -f data.sql
 
       - name: Upload backup
         uses: actions/upload-artifact@v4
