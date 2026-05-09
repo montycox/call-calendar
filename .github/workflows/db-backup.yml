@@ -10,22 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y --no-install-recommends postgresql-client
 
       - name: Dump schema
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase db dump \
-            --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres" \
-            -f schema.sql
+          pg_dump "postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require" \
+            --schema-only -f schema.sql
 
       - name: Dump data
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase db dump \
-            --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres" \
-            --data-only \
-            -f data.sql
+          pg_dump "postgresql://postgres@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres?sslmode=require" \
+            --data-only -f data.sql
 
       - name: Upload backup
         uses: actions/upload-artifact@v4
