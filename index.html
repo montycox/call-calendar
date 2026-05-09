@@ -5341,13 +5341,33 @@
     });
 
     function offerBackupBeforeClearing() {
-      if (confirm('Download a backup before clearing? (Recommended)')) {
-        document.getElementById('exportBtn').click();
-      }
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:2000;display:flex;align-items:center;justify-content:center';
+        overlay.innerHTML = `
+          <div style="background:#fff;border-radius:10px;padding:24px 20px;max-width:300px;width:90%;text-align:center;font-family:var(--font);box-shadow:0 4px 24px rgba(0,0,0,0.18)">
+            <div style="font-size:0.95rem;font-weight:600;margin-bottom:8px">Download a backup first?</div>
+            <div style="font-size:0.8rem;color:#607D8B;margin-bottom:20px">Recommended before clearing data.</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button id="_backupYes" style="background:#1565C0;color:#fff;border:none;border-radius:6px;padding:10px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:var(--font)">OK (recommended)</button>
+              <button id="_backupSkip" style="background:none;border:1px solid #CFD8DC;border-radius:6px;padding:9px;font-size:0.88rem;cursor:pointer;font-family:var(--font);color:#37474F">Skip backup</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_backupYes').onclick = () => {
+          document.body.removeChild(overlay);
+          document.getElementById('exportBtn').click();
+          resolve();
+        };
+        overlay.querySelector('#_backupSkip').onclick = () => {
+          document.body.removeChild(overlay);
+          resolve();
+        };
+      });
     }
 
-    document.getElementById('clearMonthBtn').addEventListener('click', () => {
-      offerBackupBeforeClearing();
+    document.getElementById('clearMonthBtn').addEventListener('click', async () => {
+      await offerBackupBeforeClearing();
       if (!confirm(`Clear all assignments for ${MONTHS[viewMonth]} ${viewYear}? This cannot be undone.`)) return;
       const days = new Date(viewYear, viewMonth + 1, 0).getDate();
       for (let d = 1; d <= days; d++)
@@ -5356,8 +5376,8 @@
       render();
     });
 
-    document.getElementById('clearAllBtn').addEventListener('click', () => {
-      offerBackupBeforeClearing();
+    document.getElementById('clearAllBtn').addEventListener('click', async () => {
+      await offerBackupBeforeClearing();
       if (!confirm('Clear ALL assignments? This cannot be undone.')) return;
       data = {};
       closeSettings();
