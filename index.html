@@ -2259,19 +2259,27 @@
       if (error) msg.textContent = error.message;
     });
 
-    document.getElementById('btnSignUp').addEventListener('click', async () => {
-      const email = document.getElementById('su-email').value.trim();
-      const pass  = document.getElementById('su-pass').value;
-      const msg   = document.getElementById('su-msg');
-      if (!email || !pass) { msg.textContent = 'Enter email and password.'; return; }
-      if (pass.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
+    document.getElementById(‘btnSignUp’).addEventListener(‘click’, async () => {
+      const email = document.getElementById(‘su-email’).value.trim();
+      const pass  = document.getElementById(‘su-pass’).value;
+      const msg   = document.getElementById(‘su-msg’);
+      const btn   = document.getElementById(‘btnSignUp’);
+      if (!email || !pass) { msg.textContent = ‘Enter email and password.’; return; }
+      if (pass.length < 6) { msg.textContent = ‘Password must be at least 6 characters.’; return; }
+      btn.disabled = true;
       const { data, error } = await sb.auth.signUp({ email, password: pass });
-      if (error) { msg.textContent = error.message; return; }
-      if (!data.session) {
-        msg.className = 'login-msg ok';
-        msg.textContent = 'Check your email to confirm your account, then sign in.';
+      if (error) {
+        btn.disabled = false;
+        msg.textContent = error.message;
+        return;
       }
-      // If data.session exists, onAuthStateChange handles the rest
+      msg.className = ‘login-msg ok’;
+      if (!data.session) {
+        msg.textContent = ‘Check your email to confirm your account, then sign in.’;
+      } else {
+        msg.textContent = ‘Account created — an admin will approve your access shortly.’;
+      }
+      // onAuthStateChange handles session sign-in / sign-out flow
     });
 
     document.getElementById('btnSendReset').addEventListener('click', async () => {
@@ -2377,7 +2385,7 @@
         }
         sessionApplied = false;
         await sb.auth.signOut();
-        showToast('Access not authorised — contact an admin.');
+        showToast('Your account is pending admin approval.');
         return; // onAuthStateChange SIGNED_OUT will call loadPublic()
       }
       currentUser = session.user;
@@ -4521,13 +4529,21 @@
       const email = document.getElementById('si2-email').value.trim();
       const pass  = document.getElementById('si2-pass').value;
       const msg   = document.getElementById('si2-msg');
+      const btn   = document.getElementById('sBtnSignUp');
       if (!email || !pass) { msg.textContent = 'Enter email and password.'; return; }
       if (pass.length < 6) { msg.textContent = 'Password must be at least 6 characters.'; return; }
+      btn.disabled = true;
       const { data, error } = await sb.auth.signUp({ email, password: pass });
-      if (error) { msg.textContent = error.message; return; }
+      if (error) {
+        btn.disabled = false;
+        msg.textContent = error.message;
+        return;
+      }
+      msg.className = 'login-msg ok';
       if (!data.session) {
-        msg.className = 'login-msg ok';
         msg.textContent = 'Check your email to confirm your account, then sign in.';
+      } else {
+        msg.textContent = 'Account created — an admin will approve your access shortly.';
       }
     });
 
