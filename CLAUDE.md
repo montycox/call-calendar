@@ -17,13 +17,13 @@ git push   # deploys automatically via GitHub Pages
 **Single-file app** (`index.html`) — all HTML, CSS, and JavaScript in one file. No framework, no bundler, no package.json.
 
 **Backend: Supabase** (PostgreSQL + Auth + Realtime)
-- Auth: Google OAuth via PKCE flow. Role stored in `profiles` table (`viewer`, `scheduler`, `admin`).
+- Auth: Email/password via Supabase Auth. Role stored in `profiles` table (`viewer`, `scheduler`, `admin`).
 - `staff` table: uuid PK, short_name, display_name, is_bariatric, sort_order, active
 - `assignments` table: uuid PK, date, person_id FK, am, pm, oncall_am, oncall_pm (all TEXT), exception (bool). Unique constraint on (date, person_id). REPLICA IDENTITY FULL.
-- `bari_call` table: week_start date PK, person_id FK
-- Real-time: Supabase channel subscribed to `assignments` + `bari_call` via `supabase_realtime` publication
+- `daily_coverage` table: date PK, day_call_id FK, bari_id FK, bari_class_id FK, manual flags. Holds computed-or-manual per-day coverage assignments.
+- Real-time: Supabase channel subscribed to `assignments` + `daily_coverage` via `supabase_realtime` publication
 
-**Data flow on load:** `applySession()` → `fetchStaff()` → `fetchAssignments()` + `fetchBariCall()` (parallel) → `setupRealtimeSubscriptions()` → `render()`
+**Data flow on load:** `applySession()` → `fetchStaff()` → `fetchAssignments()` + `fetchDailyCoverage()` (parallel) → `setupRealtimeSubscriptions()` → `render()`
 
 ## Key data model conventions
 
@@ -51,7 +51,7 @@ After `fetchStaff()`, three parallel structures are maintained:
 
 ## Auth
 
-Google OAuth via Supabase PKCE. `redirectTo` uses `window.location.origin + window.location.pathname` (not `href`) to avoid stale hash fragments corrupting the code exchange on mobile. `applySession()` is guarded by `sessionApplied` to prevent double-load when both `getSession()` and `onAuthStateChange` fire on redirect return. The flag resets on sign-out.
+Email/password via Supabase Auth. `applySession()` is guarded by `sessionApplied` to prevent double-load when both `getSession()` and `onAuthStateChange` fire simultaneously. The flag resets on sign-out. New users who sign up without an approved `profiles` row are signed out automatically and shown "pending admin approval"; the `notify-new-user` edge function fires once to alert admins.
 
 ## Scroll snap
 
@@ -60,6 +60,33 @@ After scroll ends (160 ms debounce), the section straddling the sticky header is
 - `scrolledPast < 8 rows` → snap back to top of current month
 
 Thresholds are `THRESHOLD_FWD` (6 × 22 px) and `THRESHOLD_BACK` (8 × 22 px) in `setupScrollSnap()`.
+
+## Development workflow
+
+### Supabase migrations
+
+Migration files live in `supabase/migrations/`. Always use **14-digit timestamps** (`YYYYMMDDHHmmss`) — e.g. `20260510000000_my_change.sql`. This avoids version collisions when multiple migrations share the same date.
+
+```bash
+supabase migration list          # compare local vs remote
+supabase db push                 # apply pending migrations to production
+```
+
+If a migration was applied manually (via SQL editor) and not tracked by the CLI, mark it as applied without re-running it:
+```bash
+supabase migration repair --status applied 20260510000000
+```
+
+### Database connection
+
+The direct DB host (`db.pkjlnjsswoadftkseffo.supabase.co`) is **IPv6-only**. For any tooling that needs a DB connection from an IPv4 network (e.g. CI, local pg_dump), use the **session pooler**:
+```
+postgresql://postgres.pkjlnjsswoadftkseffo:[PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+### Backups
+
+Automated weekly backup runs every Sunday at 4am UTC via GitHub Actions (`.github/workflows/db-backup.yml`). Dumps `schema.sql` + `data.sql` and uploads as workflow artifacts (retained 90 days). Requires `SUPABASE_DB_PASSWORD` secret in the GitHub repo. Uses `pg_dump` v17 from the PGDG apt repo via the session pooler.
 
 ## Historical data import (`convert_sheets.py`)
 
