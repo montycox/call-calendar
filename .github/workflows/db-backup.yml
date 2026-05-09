@@ -1,0 +1,37 @@
+name: Weekly Database Backup
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'   # Every Sunday at 4am UTC
+  workflow_dispatch:        # Allow manual trigger from Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump schema
+        run: |
+          supabase db dump \
+            --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres" \
+            -f schema.sql
+
+      - name: Dump data
+        run: |
+          supabase db dump \
+            --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.pkjlnjsswoadftkseffo.supabase.co:5432/postgres" \
+            --data-only \
+            -f data.sql
+
+      - name: Upload backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            schema.sql
+            data.sql
+          retention-days: 90
