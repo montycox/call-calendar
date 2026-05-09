@@ -5234,7 +5234,7 @@
     // ─────────────────────────────────────────────
     document.getElementById('exportBtn').addEventListener('click', () => {
       const blob = new Blob(
-        [JSON.stringify({ staff, data, bariatric, fullnames }, null, 2)],
+        [JSON.stringify({ staff, data, bariatric, fullnames, dailyCoverage }, null, 2)],
         { type: 'application/json' }
       );
       Object.assign(document.createElement('a'), {
@@ -5293,6 +5293,24 @@
           });
         }
         if (rows.length) await sb.from('assignments').insert(rows);
+      }
+
+      // 3. Daily coverage — delete all, bulk insert from imported data
+      if (imported.dailyCoverage && typeof imported.dailyCoverage === 'object') {
+        await sb.from('daily_coverage').delete().not('date', 'is', null);
+        const covRows = [];
+        for (const [date, ov] of Object.entries(imported.dailyCoverage)) {
+          covRows.push({
+            date,
+            day_call_id:      ov.dayCall   ? (staffByShortName[ov.dayCall]?.id   ?? null) : null,
+            bari_id:          ov.bari      ? (staffByShortName[ov.bari]?.id      ?? null) : null,
+            bari_class_id:    ov.bariClass ? (staffByShortName[ov.bariClass]?.id ?? null) : null,
+            day_call_manual:  ov.dayCallManual  || false,
+            bari_manual:      ov.bariManual     || false,
+            bari_class_manual: ov.bariClassManual || false,
+          });
+        }
+        if (covRows.length) await sb.from('daily_coverage').insert(covRows);
       }
 
       await Promise.all([fetchAssignments(), fetchDailyCoverage()]);
