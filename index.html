@@ -3663,11 +3663,27 @@
       const bandCls = inBand ? ' hosp-band' : '';
       const satOv = dailyCoverage[isoFromParts(y, m, d)];
       const sunOv = weekend ? dailyCoverage[isoFromParts(y, m, d + 1)] : null;
+      // Compute algorithm's bari for each date without using the stored override, so we can
+      // highlight stored values that differ from what the algorithm would independently choose.
+      const satDow = weekend ? 6 : new Date(y, m, d).getDay();
+      const satAlgoBari = (() => {
+        const isOC = c => satDow === 6 ? c.oncall_am !== 'none'
+                        : satDow === 0 ? c.oncall_pm !== 'none'
+                        : c.oncall_am !== 'none' || c.oncall_pm !== 'none';
+        const call = staff.find(p => isOC(getCell(y, m, d, p))) ?? '';
+        const bkp  = backupPersonForDay(y, m, d, satDow);
+        return bariatric[call] ? call : bariatric[bkp] ? bkp : null;
+      })();
+      const sunAlgoBari = weekend ? (() => {
+        const call = staff.find(p => getCell(y, m, d, p).oncall_pm !== 'none') ?? '';
+        const bkp  = backupPersonForDay(y, m, d, 0);
+        return bariatric[call] ? call : bariatric[bkp] ? bkp : null;
+      })() : null;
       const ovCls = !nameHidden && (
         (satOv?.dayCallManual && satOv.dayCall === person) ||
-        (satOv?.bariManual    && satOv.bari    === person) ||
+        (satOv?.bari  === person && satAlgoBari !== person) ||
         (sunOv?.dayCallManual && sunOv.dayCall === person) ||
-        (sunOv?.bariManual    && sunOv.bari    === person)
+        (sunOv?.bari  === person && sunAlgoBari !== person)
       ) ? ' date-has-override' : '';
       const bariClassCls = !nameHidden && (
         satOv?.bariClass === person ||
