@@ -3077,16 +3077,20 @@
         const finalDayCall       = computedDayCall || existingFallbackDayCall;
         const finalDayCallManual = computedDayCall ? false : (existingCov?.dayCallManual ?? false);
 
-        // Use computed bari if available; fall back to existing value (preserve manual flag too)
-        const bariName        = computedBari ?? existingBari;
-        const finalBariManual = computedBari ? false : (existingCov?.bariManual ?? false);
+        // Preserve a manual bari override; let algorithm fill in when not manually set.
+        // Flag is true when stored value differs from what algorithm would choose,
+        // or when algorithm can't compute but a value is assigned.
+        const bariName = (existingCov?.bariManual && existingBari)
+          ? existingBari
+          : (computedBari ?? existingBari);
+        const finalBariManual = computedBari !== null ? bariName !== computedBari : bariName !== null;
 
         const dayCallRow = finalDayCall ? staffByShortName[finalDayCall] : null;
         const bariRow    = bariName     ? staffByShortName[bariName]     : null;
 
         // Optimistic update: apply to dailyCoverage immediately so any synchronous
         // reRenderMonth call (which follows doSave before the DB round-trip completes)
-        // sees the correct state — blue outline disappears / red warning appears at once.
+        // sees the correct state — outline and warning indicators update at once.
         const prevCov = dailyCoverage[iso];
         if (!dayCallRow && !bariRow) {
           delete dailyCoverage[iso];
