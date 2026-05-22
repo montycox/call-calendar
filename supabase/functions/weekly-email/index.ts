@@ -231,9 +231,11 @@ Deno.serve(async (req) => {
     // On call: first person with oncall set for this day's slot
     const callPerson = staffOrder.find(p => isOnCall(getCell(dataIso, p))) ?? ''
 
-    // Weekday call: HOSP/exception person — blank on weekends
-    // Backup: same as weekday call on weekdays; Friday's day_call on weekends
-    const weekdayCall = isWeekend ? '' : computeDayCall(covIso, dataIso, dow)
+    // Weekday call: HOSP/exception person — blank on weekends.
+    // On a CLOSED day, bypass the stored day_call_id override and check actual HOSP assignments;
+    // if none, fall back to the on-call person (holiday arrangement).
+    const weekdayCall = isWeekend ? '' :
+      (dayClosed ? (computeBackup(dataIso, dow) || callPerson) : computeDayCall(covIso, dataIso, dow))
     const backup      = isWeekend ? fridayBackup : computeDayCall(covIso, dataIso, dow)
 
     summaries.push({
@@ -248,18 +250,14 @@ Deno.serve(async (req) => {
 
   // ── Build email ───────────────────────────────────────────────────────────
   const weekLabel = `Week of ${fmtLong(monday)}`
+  const subjectPrefix = req.headers.get('x-subject-prefix') ?? ''
+  const subject = `${subjectPrefix}Call Schedule — ${weekLabel}`
 
   function cell(name: string): string {
     return name ? displayName(name) : '<span style="color:#B0BEC5">—</span>'
   }
 
   const rowsHtml = summaries.map(s => {
-    if (s.closed) {
-      return `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #ECEFF1;font-weight:500">${fmtDay(s.date)}</td>
-        <td colspan="3" style="padding:8px 12px;border-bottom:1px solid #ECEFF1;color:#90A4AE;font-style:italic">CLOSED</td>
-      </tr>`
-    }
     return `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #ECEFF1;font-weight:500">${fmtDay(s.date)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ECEFF1">${cell(s.onCall)}</td>
@@ -307,31 +305,38 @@ Deno.serve(async (req) => {
 </body></html>`
 
   const text = [
-    `Call Schedule — ${weekLabel}`,
+    subject,
     '',
     'Day              On Call       Weekday Call  Bariatric',
     '─'.repeat(56),
     ...summaries.map(s => {
       const day = fmtDay(s.date).padEnd(17)
-      if (s.closed) return `${day}CLOSED`
       const dn = (n: string) => (n ? displayName(n) : '—')
       return `${day}${dn(s.onCall).padEnd(14)}${dn(s.weekdayCall).padEnd(14)}${dn(s.bari)}`
     }),
   ].join('\n')
 
   // ── Fetch email recipients ────────────────────────────────────────────────
-  const { data: recipientRows } = await sb
-    .from('email_recipients')
-    .select('email')
-    .order('created_at')
+  const testEmail = req.headers.get('x-test-email')
 
-  if (!recipientRows?.length) {
-    console.log('No email recipients configured')
-    return new Response('No recipients', { status: 200 })
+  let recipientEmails: string[]
+  if (testEmail) {
+    recipientEmails = [testEmail]
+    console.log('Test mode — sending only to:', testEmail)
+  } else {
+    const { data: recipientRows } = await sb
+      .from('email_recipients')
+      .select('email')
+      .order('created_at')
+
+    if (!recipientRows?.length) {
+      console.log('No email recipients configured')
+      return new Response('No recipients', { status: 200 })
+    }
+
+    recipientEmails = recipientRows.map(r => r.email)
+    console.log('Sending to:', recipientEmails)
   }
-
-  const recipientEmails = recipientRows.map(r => r.email)
-  console.log('Sending to:', recipientEmails)
 
   // ── Send via Resend ───────────────────────────────────────────────────────
   const res = await fetch('https://api.resend.com/emails', {
@@ -344,7 +349,7 @@ Deno.serve(async (req) => {
       from: 'Call Calendar <noreply@ssrounds.com>',
       to: 'noreply@ssrounds.com',
       bcc: recipientEmails,
-      subject: `Call Schedule — ${weekLabel}`,
+      subject,
       html,
       text,
     }),
@@ -353,7 +358,7 @@ Deno.serve(async (req) => {
   const body = await res.json()
   console.log('Resend:', res.status, JSON.stringify(body))
 
-  if (res.ok) {
+  if (res.ok && !testEmail) {
     await sb.from('company_info').update({ email_last_sent: now.toISOString() }).eq('id', 1)
   }
 

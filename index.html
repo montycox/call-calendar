@@ -5556,7 +5556,10 @@
       // Backup and bari: use shared helpers so overrides are respected.
       // Day Call has no meaning on weekends — show "—" on Sat/Sun.
       const isWeekend = dow === 0 || dow === 6;
-      const backupPerson    = isWeekend ? null : backupPersonForDay(ty, tm, td, dow);
+      const backupRaw    = isWeekend ? null : backupPersonForDay(ty, tm, td, dow);
+      const dayClosed    = !isWeekend && staff.length > 0 && getCell(ty, tm, td, staff[0]).am === 'CLOSED';
+      // On a CLOSED day with no HOSP assignment, the on-call person covers day call (holiday arrangement).
+      const backupPerson = (dayClosed && !backupRaw) ? callPerson : backupRaw;
       const bariPerson      = bariPersonForDay(ty, tm, td, dow);
       function set(id, name) {
         const el = document.getElementById(id);
